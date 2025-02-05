@@ -1,106 +1,143 @@
 #include <iostream>
-#include <vector>
 #include <chrono>
-#include <random>
+#include <vector>
 
 using namespace std;
+using namespace std::chrono;
 
-// Generate a random matrix of size rows x cols
-vector<vector<double> > generateMatrix(size_t rows, size_t cols) {
-    vector<vector<double> > matrix(rows, vector<double>(cols));
-    random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<> dis(0, 100);
+template <typename T>
+class Matrix {
+private:
+    int size;
+    vector<vector<T>> buffer;
 
-    for (size_t i = 0; i < rows; ++i) {
-        for (size_t j = 0; j < cols; ++j) {
-            matrix[i][j] = dis(gen);
-        }
-    }
-    // //Print out first 5*5 of the matrix
-    // for (size_t i = 0; i < 5; ++i) {
-    //     for (size_t j = 0; j < 5; ++j) {
-    //         cout << matrix[i][j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-    return matrix;
-}
-
-// Direct multiplication of matrices
-vector<vector<double> > directMultiply(const vector<vector<double> >& A, const vector<vector<double> >& B) {
-    size_t n = A.size();
-    size_t m = B.size();
-    size_t p = B[0].size();
-    vector<vector<double> > C(n, vector<double>(p, 0));
-
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = 0; j < p; ++j) {
-            for (size_t k = 0; k < m; ++k) {
-                C[i][j] += A[i][k] * B[k][j];
+public:
+    Matrix(int n, bool identity = false) : size(n), buffer(n, vector<T>(n, 0)) {
+        if (identity) {
+            for (int i = 0; i < n; i++) {
+                buffer[i][i] = 1;
             }
         }
     }
-    return C;
-}
 
-// Transpose of a matrix
-vector<vector<double> > transpose(const vector<vector<double> >& matrix) {
-    size_t rows = matrix.size();
-    size_t cols = matrix[0].size();
-    vector<vector<double> > transposed(cols, vector<double>(rows));
+    Matrix(const Matrix &other) : size(other.size), buffer(other.buffer) {}
 
-    for (size_t i = 0; i < rows; ++i) {
-        for (size_t j = 0; j < cols; ++j) {
-            transposed[j][i] = matrix[i][j];
+    Matrix &operator=(const Matrix &other) {
+        if (this != &other) {
+            size = other.size;
+            buffer = other.buffer;
+        }
+        return *this;
+    }
+
+    void display() const {
+        for (const auto &row : buffer) {
+            for (const auto &val : row) {
+                cout << val << "\t";
+            }
+            cout << endl;
         }
     }
-    return transposed;
-}
 
-// Multiplication of matrices with transposition optimization
-vector<vector<double> > transposeMultiply(const vector<vector<double> >& A, const vector<vector<double> >& B) {
-    size_t n = A.size();
-    size_t m = B.size();
-    size_t p = B[0].size();
-    vector<vector<double> > C(n, vector<double>(p, 0));
-
-    vector<vector<double> > B_T = transpose(B);
-
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = 0; j < p; ++j) {
-            for (size_t k = 0; k < m; ++k) {
-                C[i][j] += A[i][k] * B_T[j][k];
+    void fillSequential() {
+        int counter = 0;
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                buffer[i][j] = counter++;
             }
         }
     }
-    return C;
-}
 
-int main() {
-    const size_t n = 1500; // Number of rows in A
-    const size_t m = 1500; // Number of columns in A and rows in B
-    const size_t p = 1500; // Number of columns in B
+    Matrix transpose() const {
+        Matrix transposed(size);
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                transposed.buffer[j][i] = buffer[i][j];
+            }
+        }
+        return transposed;
+    }
 
-    // Generate random matrices A and B
-    vector<vector<double> > A = generateMatrix(n, m);
-    vector<vector<double> > B = generateMatrix(m, p);
+    Matrix multiply(const Matrix &other) const {
+        Matrix result(size);
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                for (int k = 0; k < size; k++) {
+                    result.buffer[i][j] += buffer[i][k] * other.buffer[k][j];
+                }
+            }
+        }
+        return result;
+    }
 
-    // Direct multiplication
-    chrono::high_resolution_clock::time_point start1 = chrono::high_resolution_clock::now();
-    vector<vector<double> > C1 = directMultiply(A, B);
-    chrono::high_resolution_clock::time_point end1 = chrono::high_resolution_clock::now();
-    chrono::duration<double> duration1 = chrono::duration_cast<chrono::duration<double> >(end1 - start1);
+    Matrix multiplyTransposed(const Matrix &transposed) const {
+        Matrix result(size);
+        for (int i = 0; i < size; i++) {
+            for (int j = 0; j < size; j++) {
+                for (int k = 0; k < size; k++) {
+                    result.buffer[i][j] += buffer[i][k] * transposed.buffer[j][k];
+                }
+            }
+        }
+        return result;
+    }
 
-    // Transpose optimization multiplication
-    chrono::high_resolution_clock::time_point start2 = chrono::high_resolution_clock::now();
-    vector<vector<double> > C2 = transposeMultiply(A, B);
-    chrono::high_resolution_clock::time_point end2 = chrono::high_resolution_clock::now();
-    chrono::duration<double> duration2 = chrono::duration_cast<chrono::duration<double> >(end2 - start2);
+    Matrix multiplyBlocked(const Matrix &transposed, int blockSize) const {
+        Matrix result(size);
+        for (int i = 0; i < size; i += blockSize) {
+            for (int j = 0; j < size; j += blockSize) {
+                for (int i1 = i; i1 < i + blockSize && i1 < size; i1++) {
+                    for (int j1 = j; j1 < j + blockSize && j1 < size; j1++) {
+                        for (int k = 0; k < size; k++) {
+                            result.buffer[i1][j1] += buffer[i1][k] * transposed.buffer[j1][k];
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+    }
+};
 
-    // Print execution times
-    cout << "Direct multiplication time: " << duration1.count() << " seconds" << endl;
-    cout << "Transposition optimization time: " << duration2.count() << " seconds" << endl;
+int main(int argc, char *argv[]) {
+    int N = atoi(argv[1]);
+    int blockSize = atoi(argv[2]);
+
+    Matrix<int> A(N);
+    A.fillSequential();
+
+    Matrix<int> B(N, true);
+    Matrix<int> B_transposed = B.transpose();
+
+    cout << "Matrix result = matrix1.multiply(matrix2);" << endl;
+    auto start1 = high_resolution_clock::now();
+    Matrix<int> C1 = A.multiply(B);
+    auto stop1 = high_resolution_clock::now();
+    cout << "Time for method 1: " << duration_cast<microseconds>(stop1 - start1).count() << " us\n";
+
+    cout << "Matrix result = matrix1.multiplyTransposed(matrix2.transpose());" << endl;
+    auto start2 = high_resolution_clock::now();
+    Matrix<int> C2 = A.multiplyTransposed(B_transposed);
+    auto stop2 = high_resolution_clock::now();
+    cout << "Time for method 2: " << duration_cast<microseconds>(stop2 - start2).count() << " us\n";
+
+    cout << "Matrix result = matrix1.multiplyBlocked(matrix2.transpose(), blockSize);" << endl;
+    auto start3 = high_resolution_clock::now();
+    Matrix<int> C3 = A.multiplyBlocked(B_transposed, blockSize);
+    auto stop3 = high_resolution_clock::now();
+    cout << "Time for method 3: " << duration_cast<microseconds>(stop3 - start3).count() << " us\n";
 
     return 0;
 }
+
+// Compile with: g++ -o matrixMul matrixMul.cpp -std=c++11 -O3
+// Run with: ./matrixMul 2000 200
+
+// Result:
+// tianyu@HuMac matrixMul % ./matrixMul 2000 20
+// Matrix result = matrix1.multiply(matrix2);
+// Time for method 1: 10194236 us
+// Matrix result = matrix1.multiplyTransposed(matrix2.transpose());
+// Time for method 2: 2201488 us
+// Matrix result = matrix1.multiplyBlocked(matrix2.transpose(), blockSize);
+// Time for method 3: 2196616 us
