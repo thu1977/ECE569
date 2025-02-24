@@ -1,0 +1,47 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# IDE
+.idea/
+cmake-build-debug/*
+.vscode/
+*.output
+*.error
+data/*_tc.bin
+data/*_tc.txt
+data/*_sg.bin
+data/*_sg.txt
+data/large_datasets/
+venv/*
+build/*
+.venv/*
