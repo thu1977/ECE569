@@ -15,68 +15,55 @@ int main(int argc, char **argv) {
     int B[n * n];
     int A_input[n];
     int A_output[n];
-    int position = 0;
     if (rank == 0) {
         int count = 1;
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-                A[position] = count;
+                A[(i*n) + j] = count;
                 count++;
-                position++;
             }
         }
-        count = 1;
-        position = 0;
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                B[position] = count;
-                count++;
-                position++;
+        for (int i = 0; i < n; i++){
+            for (int j = 0; j < n; j++){
+                if (i == j)
+                    B[(i*n) + j] = 1;
+                else
+                    B[(i*n) + j] = 0;
             }
         }
     }
+    // A * B = A; because B is an identity matrix that professor showed in one class
     MPI_Bcast(B, n * n, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Scatter(A, n, MPI_INT, A_input, n, MPI_INT, 0, MPI_COMM_WORLD);
-    if(rank == 1){
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                cout << B[(i*n)+j] << "\t";
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            int sum = 0;
+            for (int k = 0; k < n; k++) {
+                sum += A_input[j] * B[(k * n) + j];
             }
-            cout << endl;
+            A_output[j] = sum;
         }
     }
-
-    position = 0;
-    if(rank == 1){
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < n; j++) {
-                int sum = 0;
-                for (int k = 0; k < n; k++) {
-                    cout << A_input[i] << " " << B[(k * n) + j] << endl;
-//                    sum += A_input[i] * B[(k * n) + j];
-                }
-            }
-            break;
-            position++;
-        }
+    cout << "Rank: " << rank << endl;
+    for (int j = 0; j < n; j++) {
+        cout << A_output[j] << "\t";
     }
-//    if(rank == 1){
-//        for (int j = 0; j < n; j++) {
-//            cout << A_output[j] << "\t";
-//        }
-//    }
-
+    cout << endl;
 
     MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
 }
 
-//    auto start_time_chrono = std::chrono::high_resolution_clock::now();
-//    auto start_time_mpi = MPI_Wtime();
-//    std::cout << "Total ranks: " << total_rank << ", current rank: " << rank << std::endl;
-
-//auto end_time_mpi = MPI_Wtime();
-//auto end_time_chrono = std::chrono::high_resolution_clock::now();
-//std::chrono::duration<double> elapsed_chrono = end_time_chrono - start_time_chrono;
-//std::cout << "Chrono Time: " << (elapsed_chrono).count() << std::endl;
-//std::cout << "MPI Time: " << (end_time_mpi - start_time_mpi) << std::endl;
+/*
+make
+mpirun -np 4 ./gemm
+Rank: 0
+1       2       3       4       5       6       7       8
+Rank: 1
+9       10      11      12      13      14      15      16
+Rank: 2
+17      18      19      20      21      22      23      24
+Rank: 3
+25      26      27      28      29      30      31      32
+ */
