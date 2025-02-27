@@ -53,10 +53,8 @@ int main( int argc, char **argv ) {
     int local_size = file_size / total_rank;
     int offset = rank * local_size;
 
-    // Allocate memory for the local data
     uint8_t* local_data = new uint8_t[local_size];
 
-    // Read the data from the file
     MPI_File_read_at(file, offset, local_data, local_size, MPI_UNSIGNED_CHAR, MPI_STATUS_IGNORE);
     MPI_File_close(&file);
 
